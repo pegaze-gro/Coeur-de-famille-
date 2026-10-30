@@ -5,7 +5,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cœur de Famille</title>
-
 <style>
 *{box-sizing:border-box}
 body{
@@ -28,23 +27,21 @@ input,select,button{
  font-size:16px;
 }
 button{
- background:#d63384;color:white;
- border:0;font-weight:bold;cursor:pointer;
+ background:#d63384;color:white;border:0;
+ font-weight:bold;cursor:pointer;
 }
 button:disabled{opacity:.6}
 .secondary{background:#555}
 .hidden{display:none!important}
-#message{text-align:center;font-weight:bold}
+#message{text-align:center;font-weight:bold;overflow-wrap:anywhere}
 .code{
- background:#fff0f5;padding:15px;
- border-radius:10px;text-align:center;
- font-size:23px;font-weight:bold;
+ background:#fff0f5;padding:15px;border-radius:10px;
+ text-align:center;font-size:23px;font-weight:bold;
  color:#d63384;letter-spacing:3px;
 }
 small{color:#777}
 </style>
 </head>
-
 <body>
 <div class="container">
 
@@ -83,7 +80,7 @@ small{color:#777}
 
 <div id="familleCode" class="hidden">
 <input id="codeFamille" placeholder="Code de la famille">
-<small>Demande le code à l'administrateur de ta famille.</small>
+<small>Demande le code à l'administrateur.</small>
 </div>
 
 <input id="email" type="email" placeholder="Adresse e-mail">
@@ -109,8 +106,7 @@ Se connecter
 <h2>Connexion</h2>
 <input id="loginEmail" type="email" placeholder="Adresse e-mail">
 <input id="loginPassword" type="password" placeholder="Mot de passe">
-
-<button onclick="connexion()">Se connecter</button>
+<button id="loginBtn" onclick="connexion()">Se connecter</button>
 <button class="secondary" onclick="motDePasseOublie()">
 Mot de passe oublié ?
 </button>
@@ -122,17 +118,11 @@ Créer un compte
 <div id="dashboard" class="hidden">
 <h2>Bienvenue dans ta famille ❤️</h2>
 <p id="profil"></p>
-
 <h3>Code de ta famille</h3>
 <p>Partage ce code avec les personnes que tu souhaites inviter.</p>
 <div id="codeAffiche" class="code">--------</div>
-<button class="secondary" onclick="copierCode()">
-Copier le code
-</button>
-
-<button class="secondary" onclick="deconnexion()">
-Se déconnecter
-</button>
+<button class="secondary" onclick="copierCode()">Copier le code</button>
+<button class="secondary" onclick="deconnexion()">Se déconnecter</button>
 </div>
 
 <p id="message"></p>
@@ -168,12 +158,10 @@ function message(texte, erreur=false){
 
 function changerMode(){
  const mode=document.getElementById("mode").value;
- document.getElementById("familleNom").classList.toggle(
-  "hidden",mode!=="creer"
- );
- document.getElementById("familleCode").classList.toggle(
-  "hidden",mode!=="rejoindre"
- );
+ document.getElementById("familleNom").classList.toggle("hidden",mode!=="creer");
+ document.getElementById("familleCode").classList.toggle("hidden",mode!=="rejoindre");
+ document.getElementById("registerBtn").textContent=
+ mode==="creer"?"Créer mon compte":"Rejoindre ma famille";
 }
 
 function afficherConnexion(){
@@ -198,11 +186,13 @@ function genererCode(){
 }
 
 async function inscription(){
+ if(inscriptionEnCours)return;
+
  const nom=document.getElementById("nom").value.trim();
  const prenom=document.getElementById("prenom").value.trim();
  const role=document.getElementById("role").value;
  const ville=document.getElementById("ville").value;
- const email=document.getElementById("email").value.trim();
+ const email=document.getElementById("email").value.trim().toLowerCase();
  const password=document.getElementById("password").value;
  const age=document.getElementById("age").checked;
  const mode=document.getElementById("mode").value;
@@ -213,30 +203,62 @@ async function inscription(){
  if(!nom||!prenom||!role||!ville||!email||!password){
   return message("Remplis tous les champs.",true);
  }
-
  if(mode==="creer"&&!nomFamille){
   return message("Donne un nom à ta famille.",true);
  }
-
  if(mode==="rejoindre"&&!codeSaisi){
   return message("Entre le code de ta famille.",true);
  }
-
  if(password.length<6){
   return message("Le mot de passe doit contenir au moins 6 caractères.",true);
  }
-
  if(!age){
   return message("Tu dois confirmer avoir au moins 18 ans.",true);
  }
 
- btn.disabled=true;
- message("Création du compte en cours...");
  inscriptionEnCours=true;
+ btn.disabled=true;
+ message("Vérification des informations...");
 
  let user=null;
 
  try{
+  let familleId="";
+  let code="";
+
+  // Vérifier la famille AVANT de créer le compte.
+  if(mode==="rejoindre"){
+   const familleDoc=await db.collection("familles").doc(codeSaisi).get();
+
+   if(!familleDoc.exists){
+    throw new Error("Code de famille incorrect ou inexistant.");
+   }
+
+   familleId=familleDoc.id;
+   code=familleDoc.data().code||familleDoc.id;
+
+  }else{
+   // Générer un code familial unique.
+   let disponible=false;
+
+   for(let i=0;i<5;i++){
+    code=genererCode();
+    const existe=await db.collection("familles").doc(code).get();
+    if(!existe.exists){
+     disponible=true;
+     break;
+    }
+   }
+
+   if(!disponible){
+    throw new Error("Impossible de générer un code. Réessaie.");
+   }
+
+   familleId=code;
+  }
+
+  message("Création du compte en cours...");
+
   const result=await auth.createUserWithEmailAndPassword(email,password);
   user=result.user;
 
@@ -244,16 +266,12 @@ async function inscription(){
    displayName:prenom+" "+nom
   });
 
-  let familleId="";
-  let code="";
+  const familleRef=db.collection("familles").doc(familleId);
+  const membreRef=db.collection("membres").doc(user.uid);
+
+  const batch=db.batch();
 
   if(mode==="creer"){
-   code=genererCode();
-   familleId=code;
-
-   const batch=db.batch();
-   const familleRef=db.collection("familles").doc(familleId);
-
    batch.set(familleRef,{
     nomfamille:nomFamille,
     code:code,
@@ -261,55 +279,29 @@ async function inscription(){
     ville:ville,
     createdAt:firebase.firestore.FieldValue.serverTimestamp()
    });
-
-   batch.set(db.collection("membres").doc(user.uid),{
-    uid:user.uid,
-    familleId:familleId,
-    nom:nom,
-    prenom:prenom,
-    email:email,
-    role:role,
-    ville:ville,
-    statut:"administrateur",
-    createdAt:firebase.firestore.FieldValue.serverTimestamp()
-   });
-
-   await batch.commit();
-
-  }else{
-   const familleRef=db.collection("familles").doc(codeSaisi);
-   const familleDoc=await familleRef.get();
-
-   if(!familleDoc.exists){
-    throw new Error("Code de famille incorrect ou inexistant.");
-   }
-
-   familleId=familleDoc.id;
-   code=familleDoc.data().code || familleDoc.id;
-
-   await db.collection("membres").doc(user.uid).set({
-    uid:user.uid,
-    familleId:familleId,
-    nom:nom,
-    prenom:prenom,
-    email:email,
-    role:role,
-    ville:ville,
-    statut:"membre",
-    createdAt:firebase.firestore.FieldValue.serverTimestamp()
-   });
   }
 
-  message("Compte créé et membre enregistré avec succès !");
+  batch.set(membreRef,{
+   uid:user.uid,
+   familleId:familleId,
+   nom:nom,
+   prenom:prenom,
+   email:email,
+   role:role,
+   ville:ville,
+   statut:mode==="creer"?"administrateur":"membre",
+   createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  // Enregistrer la famille et le membre dans une seule opération.
+  await batch.commit();
+
   codeActuel=code;
+  message("Compte créé et membre enregistré avec succès !");
   await afficherDashboard(user);
 
  }catch(error){
   console.error(error);
-
-  if(user){
-   try{await auth.signOut();}catch(e){}
-  }
 
   let texte=error.message;
 
@@ -319,8 +311,21 @@ async function inscription(){
    texte="Adresse e-mail invalide.";
   }else if(error.code==="auth/weak-password"){
    texte="Choisis un mot de passe plus solide.";
-  }else if(error.code==="permission-denied"){
+  }else if(error.code==="permission-denied"||
+           error.code==="firestore/permission-denied"){
    texte="Accès refusé par Firebase. Vérifie les règles Firestore.";
+  }else if(error.code==="auth/network-request-failed"){
+   texte="Problème de connexion Internet.";
+  }
+
+  // Supprimer le compte si l'enregistrement Firestore échoue.
+  if(user){
+   try{
+    await user.delete();
+   }catch(suppressionError){
+    console.error("Suppression impossible :",suppressionError);
+    texte+=" Le compte d'authentification existe peut-être encore. Contacte l'administrateur.";
+   }
   }
 
   message("Erreur : "+texte,true);
@@ -332,28 +337,37 @@ async function inscription(){
 }
 
 async function connexion(){
- const email=document.getElementById("loginEmail").value.trim();
+ const email=document.getElementById("loginEmail").value.trim().toLowerCase();
  const password=document.getElementById("loginPassword").value;
+ const btn=document.getElementById("loginBtn");
 
  if(!email||!password){
   return message("Entre ton e-mail et ton mot de passe.",true);
  }
+
+ btn.disabled=true;
 
  try{
   message("Connexion en cours...");
   await auth.signInWithEmailAndPassword(email,password);
   message("Connexion réussie !");
  }catch(error){
-  if(error.code==="auth/invalid-credential"){
+  console.error(error);
+
+  if(error.code==="auth/invalid-credential"||
+     error.code==="auth/user-not-found"||
+     error.code==="auth/wrong-password"){
    message("E-mail ou mot de passe incorrect.",true);
   }else{
    message("Erreur : "+error.message,true);
   }
+ }finally{
+  btn.disabled=false;
  }
 }
 
 async function motDePasseOublie(){
- const email=document.getElementById("loginEmail").value.trim();
+ const email=document.getElementById("loginEmail").value.trim().toLowerCase();
 
  if(!email){
   return message("Entre ton adresse e-mail d'abord.",true);
@@ -375,29 +389,31 @@ async function afficherDashboard(user){
  try{
   const doc=await db.collection("membres").doc(user.uid).get();
 
-  if(doc.exists){
-   const data=doc.data();
-
-   document.getElementById("profil").textContent=
-    data.prenom+" "+data.nom+" — "+data.role+" — "+data.ville;
-
-   const famille=await db.collection("familles")
-    .doc(data.familleId).get();
-
-   codeActuel=famille.exists
-    ?(famille.data().code || famille.id)
-    :"Non disponible";
-
-   document.getElementById("codeAffiche").textContent=codeActuel;
-
-  }else{
+  if(!doc.exists){
    document.getElementById("profil").textContent=user.email;
    document.getElementById("codeAffiche").textContent="Non disponible";
+   message("Profil familial introuvable. Contacte l'administrateur.",true);
+   return;
   }
+
+  const data=doc.data();
+
+  document.getElementById("profil").textContent=
+   data.prenom+" "+data.nom+" — "+data.role+" — "+data.ville;
+
+  const famille=await db.collection("familles").doc(data.familleId).get();
+
+  if(famille.exists){
+   codeActuel=famille.data().code||famille.id;
+  }else{
+   codeActuel="Non disponible";
+  }
+
+  document.getElementById("codeAffiche").textContent=codeActuel;
+
  }catch(error){
   console.error(error);
-  document.getElementById("profil").textContent=user.email;
-  message("Impossible de charger toutes les informations.",true);
+  message("Impossible de charger les informations. Vérifie Firestore.",true);
  }
 }
 
@@ -417,6 +433,7 @@ async function copierCode(){
 async function deconnexion(){
  try{
   await auth.signOut();
+  codeActuel="";
   message("Déconnexion réussie.");
  }catch(error){
   message("Erreur de déconnexion.",true);
@@ -424,11 +441,12 @@ async function deconnexion(){
 }
 
 auth.onAuthStateChanged(user=>{
+ if(inscriptionEnCours)return;
+
  if(user){
-  if(!inscriptionEnCours){
-   afficherDashboard(user);
-  }
+  afficherDashboard(user);
  }else{
+  codeActuel="";
   document.getElementById("dashboard").classList.add("hidden");
   document.getElementById("login").classList.add("hidden");
   document.getElementById("register").classList.remove("hidden");
