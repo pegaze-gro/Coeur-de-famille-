@@ -5,16 +5,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cœur de Famille</title>
+
 <style>
 *{box-sizing:border-box}
 body{
  margin:0;font-family:Arial,sans-serif;
  background:linear-gradient(135deg,#fff0f5,#fce4ec);
- color:#333;padding:20px;
+ color:#333;padding:15px;
 }
 .container{
- max-width:450px;margin:35px auto;background:white;
- padding:25px;border-radius:20px;
+ max-width:450px;margin:25px auto;
+ background:white;padding:24px;
+ border-radius:20px;
  box-shadow:0 5px 25px #0002;
 }
 h1{text-align:center;color:#d63384}
@@ -26,31 +28,46 @@ input,select,button{
  font-size:16px;
 }
 button{
- background:#d63384;color:white;border:0;
- font-weight:bold;cursor:pointer;
+ background:#d63384;color:white;
+ border:0;font-weight:bold;cursor:pointer;
 }
 button:disabled{opacity:.6}
 .secondary{background:#555}
-.hidden{display:none}
+.hidden{display:none!important}
 #message{text-align:center;font-weight:bold}
+.code{
+ background:#fff0f5;padding:15px;
+ border-radius:10px;text-align:center;
+ font-size:23px;font-weight:bold;
+ color:#d63384;letter-spacing:3px;
+}
+small{color:#777}
 </style>
 </head>
-<body>
 
+<body>
 <div class="container">
+
 <h1>❤️ Cœur de Famille</h1>
 <p>Ensemble, construisons une belle famille.</p>
 
 <div id="register">
 <h2>Créer mon compte</h2>
 
-<input id="nom" placeholder="Ton nom" required>
-<input id="prenom" placeholder="Ton prénom" required>
+<label>Que souhaites-tu faire ?</label>
+<select id="mode" onchange="changerMode()">
+<option value="creer">Créer une nouvelle famille</option>
+<option value="rejoindre">Rejoindre une famille existante</option>
+</select>
+
+<input id="nom" placeholder="Ton nom">
+<input id="prenom" placeholder="Ton prénom">
 
 <select id="role">
-<option value="">Tu es...</option>
+<option value="">Ton rôle dans la famille</option>
 <option value="Maman célibataire">Maman célibataire</option>
 <option value="Papa célibataire">Papa célibataire</option>
+<option value="Membre de la famille">Membre de la famille</option>
 </select>
 
 <select id="ville">
@@ -60,31 +77,62 @@ button:disabled{opacity:.6}
 <option value="Autre ville du Togo">Autre ville du Togo</option>
 </select>
 
-<input id="email" type="email" placeholder="Adresse e-mail" required>
-<input id="password" type="password" placeholder="Mot de passe (6 caractères minimum)" required>
+<div id="familleNom">
+<input id="nomFamille" placeholder="Nom de ta famille">
+</div>
 
-<label>
+<div id="familleCode" class="hidden">
+<input id="codeFamille" placeholder="Code de la famille">
+<small>Demande le code à l'administrateur de ta famille.</small>
+</div>
+
+<input id="email" type="email" placeholder="Adresse e-mail">
+<input id="password" type="password"
+placeholder="Mot de passe (6 caractères minimum)">
+
+<label style="display:flex;align-items:center;gap:8px">
 <input id="age" type="checkbox" style="width:auto">
-J'ai au moins 18 ans et j'accepte les conditions d'utilisation.
+J'ai au moins 18 ans et j'accepte les conditions.
 </label>
 
-<button id="registerBtn" onclick="inscription()">Créer mon compte</button>
+<button id="registerBtn" onclick="inscription()">
+Créer mon compte
+</button>
+
 <p>Déjà membre ?</p>
-<button class="secondary" onclick="afficherConnexion()">Se connecter</button>
+<button class="secondary" onclick="afficherConnexion()">
+Se connecter
+</button>
 </div>
 
 <div id="login" class="hidden">
 <h2>Connexion</h2>
 <input id="loginEmail" type="email" placeholder="Adresse e-mail">
 <input id="loginPassword" type="password" placeholder="Mot de passe">
+
 <button onclick="connexion()">Se connecter</button>
-<button class="secondary" onclick="afficherInscription()">Créer un compte</button>
+<button class="secondary" onclick="motDePasseOublie()">
+Mot de passe oublié ?
+</button>
+<button class="secondary" onclick="afficherInscription()">
+Créer un compte
+</button>
 </div>
 
 <div id="dashboard" class="hidden">
 <h2>Bienvenue dans ta famille ❤️</h2>
 <p id="profil"></p>
-<button class="secondary" onclick="deconnexion()">Se déconnecter</button>
+
+<h3>Code de ta famille</h3>
+<p>Partage ce code avec les personnes que tu souhaites inviter.</p>
+<div id="codeAffiche" class="code">--------</div>
+<button class="secondary" onclick="copierCode()">
+Copier le code
+</button>
+
+<button class="secondary" onclick="deconnexion()">
+Se déconnecter
+</button>
 </div>
 
 <p id="message"></p>
@@ -96,12 +144,12 @@ J'ai au moins 18 ans et j'accepte les conditions d'utilisation.
 
 <script>
 const firebaseConfig = {
-  apiKey: "AIzaSyBA2njtb7Ktm6ZTwgOgPzwgBpeuFZdzIeo",
-  authDomain: "coeur-de-famille-9989c.firebaseapp.com",
-  projectId: "coeur-de-famille-9989c",
-  storageBucket: "coeur-de-famille-9989c.firebasestorage.app",
-  messagingSenderId: "150552510135",
-  appId: "1:150552510135:web:797382d347f10f890b9732"
+ apiKey: "AIzaSyBA2njtb7Ktm6ZTwgOgPzwgBpeuFZdzIeo",
+ authDomain: "coeur-de-famille-9989c.firebaseapp.com",
+ projectId: "coeur-de-famille-9989c",
+ storageBucket: "coeur-de-famille-9989c.firebasestorage.app",
+ messagingSenderId: "150552510135",
+ appId: "1:150552510135:web:797382d347f10f890b9732"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -109,22 +157,44 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+let codeActuel = "";
+let inscriptionEnCours = false;
+
 function message(texte, erreur=false){
  const el=document.getElementById("message");
  el.textContent=texte;
  el.style.color=erreur?"red":"green";
 }
 
+function changerMode(){
+ const mode=document.getElementById("mode").value;
+ document.getElementById("familleNom").classList.toggle(
+  "hidden",mode!=="creer"
+ );
+ document.getElementById("familleCode").classList.toggle(
+  "hidden",mode!=="rejoindre"
+ );
+}
+
 function afficherConnexion(){
  document.getElementById("register").classList.add("hidden");
+ document.getElementById("dashboard").classList.add("hidden");
  document.getElementById("login").classList.remove("hidden");
  message("");
 }
 
 function afficherInscription(){
  document.getElementById("login").classList.add("hidden");
+ document.getElementById("dashboard").classList.add("hidden");
  document.getElementById("register").classList.remove("hidden");
  message("");
+}
+
+function genererCode(){
+ const caracteres="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+ const valeurs=new Uint32Array(8);
+ crypto.getRandomValues(valeurs);
+ return Array.from(valeurs,v=>caracteres[v%caracteres.length]).join("");
 }
 
 async function inscription(){
@@ -135,51 +205,128 @@ async function inscription(){
  const email=document.getElementById("email").value.trim();
  const password=document.getElementById("password").value;
  const age=document.getElementById("age").checked;
+ const mode=document.getElementById("mode").value;
+ const nomFamille=document.getElementById("nomFamille").value.trim();
+ const codeSaisi=document.getElementById("codeFamille").value.trim().toUpperCase();
  const btn=document.getElementById("registerBtn");
 
  if(!nom||!prenom||!role||!ville||!email||!password){
   return message("Remplis tous les champs.",true);
  }
+
+ if(mode==="creer"&&!nomFamille){
+  return message("Donne un nom à ta famille.",true);
+ }
+
+ if(mode==="rejoindre"&&!codeSaisi){
+  return message("Entre le code de ta famille.",true);
+ }
+
  if(password.length<6){
   return message("Le mot de passe doit contenir au moins 6 caractères.",true);
  }
+
  if(!age){
   return message("Tu dois confirmer avoir au moins 18 ans.",true);
  }
 
  btn.disabled=true;
- message("Création de ton compte en cours...");
+ message("Création du compte en cours...");
+ inscriptionEnCours=true;
+
+ let user=null;
 
  try{
   const result=await auth.createUserWithEmailAndPassword(email,password);
-  const user=result.user;
+  user=result.user;
 
-  await user.updateProfile({displayName:prenom+" "+nom});
-
-  const familleRef=db.collection("familles").doc();
-
-  await familleRef.set({
-   nomfamille:nom+" "+prenom,
-   ownerUid:user.uid,
-   ville:ville,
-   createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  await user.updateProfile({
+   displayName:prenom+" "+nom
   });
 
-  await db.collection("membres").doc(user.uid).set({
-   uid:user.uid,
-   familleId:familleRef.id,
-   nom:nom,
-   prenom:prenom,
-   email:email,
-   role:role,
-   ville:ville,
-   createdAt:firebase.firestore.FieldValue.serverTimestamp()
-  });
+  let familleId="";
+  let code="";
 
-  message("Compte créé et informations enregistrées avec succès !");
+  if(mode==="creer"){
+   code=genererCode();
+   familleId=code;
+
+   const batch=db.batch();
+   const familleRef=db.collection("familles").doc(familleId);
+
+   batch.set(familleRef,{
+    nomfamille:nomFamille,
+    code:code,
+    ownerUid:user.uid,
+    ville:ville,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+   });
+
+   batch.set(db.collection("membres").doc(user.uid),{
+    uid:user.uid,
+    familleId:familleId,
+    nom:nom,
+    prenom:prenom,
+    email:email,
+    role:role,
+    ville:ville,
+    statut:"administrateur",
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+   });
+
+   await batch.commit();
+
+  }else{
+   const familleRef=db.collection("familles").doc(codeSaisi);
+   const familleDoc=await familleRef.get();
+
+   if(!familleDoc.exists){
+    throw new Error("Code de famille incorrect ou inexistant.");
+   }
+
+   familleId=familleDoc.id;
+   code=familleDoc.data().code || familleDoc.id;
+
+   await db.collection("membres").doc(user.uid).set({
+    uid:user.uid,
+    familleId:familleId,
+    nom:nom,
+    prenom:prenom,
+    email:email,
+    role:role,
+    ville:ville,
+    statut:"membre",
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+   });
+  }
+
+  message("Compte créé et membre enregistré avec succès !");
+  codeActuel=code;
+  await afficherDashboard(user);
+
  }catch(error){
-  message("Erreur : "+error.message,true);
+  console.error(error);
+
+  if(user){
+   try{await auth.signOut();}catch(e){}
+  }
+
+  let texte=error.message;
+
+  if(error.code==="auth/email-already-in-use"){
+   texte="Cette adresse e-mail possède déjà un compte.";
+  }else if(error.code==="auth/invalid-email"){
+   texte="Adresse e-mail invalide.";
+  }else if(error.code==="auth/weak-password"){
+   texte="Choisis un mot de passe plus solide.";
+  }else if(error.code==="permission-denied"){
+   texte="Accès refusé par Firebase. Vérifie les règles Firestore.";
+  }
+
+  message("Erreur : "+texte,true);
+
  }finally{
+  inscriptionEnCours=false;
   btn.disabled=false;
  }
 }
@@ -188,40 +335,103 @@ async function connexion(){
  const email=document.getElementById("loginEmail").value.trim();
  const password=document.getElementById("loginPassword").value;
 
+ if(!email||!password){
+  return message("Entre ton e-mail et ton mot de passe.",true);
+ }
+
  try{
+  message("Connexion en cours...");
   await auth.signInWithEmailAndPassword(email,password);
   message("Connexion réussie !");
+ }catch(error){
+  if(error.code==="auth/invalid-credential"){
+   message("E-mail ou mot de passe incorrect.",true);
+  }else{
+   message("Erreur : "+error.message,true);
+  }
+ }
+}
+
+async function motDePasseOublie(){
+ const email=document.getElementById("loginEmail").value.trim();
+
+ if(!email){
+  return message("Entre ton adresse e-mail d'abord.",true);
+ }
+
+ try{
+  await auth.sendPasswordResetEmail(email);
+  message("Un lien de réinitialisation a été envoyé par e-mail.");
  }catch(error){
   message("Erreur : "+error.message,true);
  }
 }
 
-async function deconnexion(){
- await auth.signOut();
- message("Déconnexion réussie.");
+async function afficherDashboard(user){
+ document.getElementById("register").classList.add("hidden");
+ document.getElementById("login").classList.add("hidden");
+ document.getElementById("dashboard").classList.remove("hidden");
+
+ try{
+  const doc=await db.collection("membres").doc(user.uid).get();
+
+  if(doc.exists){
+   const data=doc.data();
+
+   document.getElementById("profil").textContent=
+    data.prenom+" "+data.nom+" — "+data.role+" — "+data.ville;
+
+   const famille=await db.collection("familles")
+    .doc(data.familleId).get();
+
+   codeActuel=famille.exists
+    ?(famille.data().code || famille.id)
+    :"Non disponible";
+
+   document.getElementById("codeAffiche").textContent=codeActuel;
+
+  }else{
+   document.getElementById("profil").textContent=user.email;
+   document.getElementById("codeAffiche").textContent="Non disponible";
+  }
+ }catch(error){
+  console.error(error);
+  document.getElementById("profil").textContent=user.email;
+  message("Impossible de charger toutes les informations.",true);
+ }
 }
 
-auth.onAuthStateChanged(async user=>{
- if(user){
-  document.getElementById("register").classList.add("hidden");
-  document.getElementById("login").classList.add("hidden");
-  document.getElementById("dashboard").classList.remove("hidden");
+async function copierCode(){
+ if(!codeActuel||codeActuel==="Non disponible"){
+  return message("Aucun code disponible.",true);
+ }
 
-  try{
-   const doc=await db.collection("membres").doc(user.uid).get();
-   if(doc.exists){
-    const data=doc.data();
-    document.getElementById("profil").textContent=
-     data.prenom+" "+data.nom+" — "+data.role+" — "+data.ville;
-   }else{
-    document.getElementById("profil").textContent=user.email;
-   }
-  }catch(error){
-   document.getElementById("profil").textContent=user.email;
+ try{
+  await navigator.clipboard.writeText(codeActuel);
+  message("Code copié ! Tu peux le partager.");
+ }catch(error){
+  message("Copie impossible sur cet appareil.",true);
+ }
+}
+
+async function deconnexion(){
+ try{
+  await auth.signOut();
+  message("Déconnexion réussie.");
+ }catch(error){
+  message("Erreur de déconnexion.",true);
+ }
+}
+
+auth.onAuthStateChanged(user=>{
+ if(user){
+  if(!inscriptionEnCours){
+   afficherDashboard(user);
   }
  }else{
   document.getElementById("dashboard").classList.add("hidden");
-  afficherInscription();
+  document.getElementById("login").classList.add("hidden");
+  document.getElementById("register").classList.remove("hidden");
  }
 });
 </script>
