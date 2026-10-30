@@ -1,4 +1,100 @@
 
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cœur de Famille</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;font-family:Arial,sans-serif;
+ background:linear-gradient(135deg,#fff0f5,#fce4ec);
+ color:#333;padding:20px;
+}
+.container{
+ max-width:450px;margin:35px auto;background:white;
+ padding:25px;border-radius:20px;
+ box-shadow:0 5px 25px #0002;
+}
+h1{text-align:center;color:#d63384}
+h2{text-align:center;color:#555}
+p{text-align:center}
+input,select,button{
+ width:100%;padding:14px;margin:9px 0;
+ border-radius:10px;border:1px solid #ddd;
+ font-size:16px;
+}
+button{
+ background:#d63384;color:white;border:0;
+ font-weight:bold;cursor:pointer;
+}
+button:disabled{opacity:.6}
+.secondary{background:#555}
+.hidden{display:none}
+#message{text-align:center;font-weight:bold}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h1>❤️ Cœur de Famille</h1>
+<p>Ensemble, construisons une belle famille.</p>
+
+<div id="register">
+<h2>Créer mon compte</h2>
+
+<input id="nom" placeholder="Ton nom" required>
+<input id="prenom" placeholder="Ton prénom" required>
+
+<select id="role">
+<option value="">Tu es...</option>
+<option value="Maman célibataire">Maman célibataire</option>
+<option value="Papa célibataire">Papa célibataire</option>
+</select>
+
+<select id="ville">
+<option value="">Ta ville</option>
+<option value="Lomé">Lomé</option>
+<option value="Baguida">Baguida</option>
+<option value="Autre ville du Togo">Autre ville du Togo</option>
+</select>
+
+<input id="email" type="email" placeholder="Adresse e-mail" required>
+<input id="password" type="password" placeholder="Mot de passe (6 caractères minimum)" required>
+
+<label>
+<input id="age" type="checkbox" style="width:auto">
+J'ai au moins 18 ans et j'accepte les conditions d'utilisation.
+</label>
+
+<button id="registerBtn" onclick="inscription()">Créer mon compte</button>
+<p>Déjà membre ?</p>
+<button class="secondary" onclick="afficherConnexion()">Se connecter</button>
+</div>
+
+<div id="login" class="hidden">
+<h2>Connexion</h2>
+<input id="loginEmail" type="email" placeholder="Adresse e-mail">
+<input id="loginPassword" type="password" placeholder="Mot de passe">
+<button onclick="connexion()">Se connecter</button>
+<button class="secondary" onclick="afficherInscription()">Créer un compte</button>
+</div>
+
+<div id="dashboard" class="hidden">
+<h2>Bienvenue dans ta famille ❤️</h2>
+<p id="profil"></p>
+<button class="secondary" onclick="deconnexion()">Se déconnecter</button>
+</div>
+
+<p id="message"></p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyBA2njtb7Ktm6ZTwgOgPzwgBpeuFZdzIeo",
   authDomain: "coeur-de-famille-9989c.firebaseapp.com",
@@ -7,3 +103,127 @@ const firebaseConfig = {
   messagingSenderId: "150552510135",
   appId: "1:150552510135:web:797382d347f10f890b9732"
 };
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+function message(texte, erreur=false){
+ const el=document.getElementById("message");
+ el.textContent=texte;
+ el.style.color=erreur?"red":"green";
+}
+
+function afficherConnexion(){
+ document.getElementById("register").classList.add("hidden");
+ document.getElementById("login").classList.remove("hidden");
+ message("");
+}
+
+function afficherInscription(){
+ document.getElementById("login").classList.add("hidden");
+ document.getElementById("register").classList.remove("hidden");
+ message("");
+}
+
+async function inscription(){
+ const nom=document.getElementById("nom").value.trim();
+ const prenom=document.getElementById("prenom").value.trim();
+ const role=document.getElementById("role").value;
+ const ville=document.getElementById("ville").value;
+ const email=document.getElementById("email").value.trim();
+ const password=document.getElementById("password").value;
+ const age=document.getElementById("age").checked;
+ const btn=document.getElementById("registerBtn");
+
+ if(!nom||!prenom||!role||!ville||!email||!password){
+  return message("Remplis tous les champs.",true);
+ }
+ if(password.length<6){
+  return message("Le mot de passe doit contenir au moins 6 caractères.",true);
+ }
+ if(!age){
+  return message("Tu dois confirmer avoir au moins 18 ans.",true);
+ }
+
+ btn.disabled=true;
+ message("Création de ton compte en cours...");
+
+ try{
+  const result=await auth.createUserWithEmailAndPassword(email,password);
+  const user=result.user;
+
+  await user.updateProfile({displayName:prenom+" "+nom});
+
+  const familleRef=db.collection("familles").doc();
+
+  await familleRef.set({
+   nomfamille:nom+" "+prenom,
+   ownerUid:user.uid,
+   ville:ville,
+   createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  await db.collection("membres").doc(user.uid).set({
+   uid:user.uid,
+   familleId:familleRef.id,
+   nom:nom,
+   prenom:prenom,
+   email:email,
+   role:role,
+   ville:ville,
+   createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  message("Compte créé et informations enregistrées avec succès !");
+ }catch(error){
+  message("Erreur : "+error.message,true);
+ }finally{
+  btn.disabled=false;
+ }
+}
+
+async function connexion(){
+ const email=document.getElementById("loginEmail").value.trim();
+ const password=document.getElementById("loginPassword").value;
+
+ try{
+  await auth.signInWithEmailAndPassword(email,password);
+  message("Connexion réussie !");
+ }catch(error){
+  message("Erreur : "+error.message,true);
+ }
+}
+
+async function deconnexion(){
+ await auth.signOut();
+ message("Déconnexion réussie.");
+}
+
+auth.onAuthStateChanged(async user=>{
+ if(user){
+  document.getElementById("register").classList.add("hidden");
+  document.getElementById("login").classList.add("hidden");
+  document.getElementById("dashboard").classList.remove("hidden");
+
+  try{
+   const doc=await db.collection("membres").doc(user.uid).get();
+   if(doc.exists){
+    const data=doc.data();
+    document.getElementById("profil").textContent=
+     data.prenom+" "+data.nom+" — "+data.role+" — "+data.ville;
+   }else{
+    document.getElementById("profil").textContent=user.email;
+   }
+  }catch(error){
+   document.getElementById("profil").textContent=user.email;
+  }
+ }else{
+  document.getElementById("dashboard").classList.add("hidden");
+  afficherInscription();
+ }
+});
+</script>
+</body>
+</html>
